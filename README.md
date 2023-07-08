@@ -11,6 +11,12 @@
 # GTNH-monitor-backend
 The FastAPI-based backend of GTNH monitor
 
+## Run the Server
+
+```bash
+uvicorn main:app --reload
+```
+
 ## Environment Build
 
 ```bash
