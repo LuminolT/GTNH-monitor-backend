@@ -2,7 +2,7 @@
 Author: LuminolT luminol.chen@gmail.com
 Date: 2023-07-08 09:16:16
 LastEditors: LuminolT luminol.chen@gmail.com
-LastEditTime: 2023-07-08 10:56:40
+LastEditTime: 2023-07-09 12:10:20
 FilePath: \GTNH-monitor\backend\main.py
 Description: 
 
@@ -13,12 +13,13 @@ from pydantic import BaseModel
 from typing import List
 import sqlite3
 import datetime
+import json
 
 
 class LogItem(BaseModel):
     """ LogItem class to manage the log data
     """
-    id: int
+    id: int = None # id is auto-incremented
     item_name: str
     quantity: int
     time: datetime.datetime
@@ -38,6 +39,8 @@ class Database:
         if self._connection is not None:
             self._connection.close()
             self._connection = None            
+
+#################### Main ####################s
 
 db = Database()
 app = FastAPI()
@@ -86,6 +89,9 @@ def get_latest_data():
     cursor.execute(query)
     latest_data = cursor.fetchall()
     
+    # to json
+    latest_data = [LogItem(id=item[0], item_name=item[1], quantity=item[2], time=item[3]) for item in latest_data]
+    
     return latest_data
 
 def add_log(log_data: str):
@@ -103,8 +109,9 @@ def add_log(log_data: str):
     data = log_data_clean(log_data)
     
     try:
-        query = "INSERT INTO log (item_name, quantity, timestamp) VALUES (?, ?, ?)"
-        cursor.execute(query, data)
+        for item in data:
+            query = "INSERT INTO log (item_name, quantity, timestamp) VALUES (?, ?, ?)"
+            cursor.execute(query, (item.item_name, item.quantity, item.time))
         connection.commit()
     except Exception as e:
         connection.rollback()
@@ -121,4 +128,27 @@ def log_data_clean(log_data: str) -> List[LogItem]:
 
     Returns:
         str: the cleaned text
+        
+    Examples:
+        >>> log_data_clean("data=Crushed Rare Earth (I) Ore~54~false;
+        ····压印基板原料~0~true;
+        ····drop of 熔融黑钢~0~true;")
+        
+        [LogItem(id=None, item_name='Crushed Rare Earth (I) Ore', quantity=54, 
+        time=datetime.datetime(2023, 7, 9, 11, 21, 25, 983932)), 
+        LogItem(id=None, item_name='压印基板原料', quantity=0, 
+        time=datetime.datetime(2023, 7, 9, 11, 21, 25, 983932)), 
+        LogItem(id=None, item_name='drop of 熔融黑钢', quantity=0, 
+        time=datetime.datetime(2023, 7, 9, 11, 21, 25, 983932))]
     """
+    time = datetime.datetime.now()
+    # log_data = "data=Crushed Rare Earth (I) Ore~54~false;压印基板原料~0~true;drop of 熔融黑钢~0~true;"
+    log_data = log_data[5::].split(";")
+    log_data = [item.split("~") for item in log_data]
+    res_data = []
+    for item in log_data:
+        if len(item) != 3:  # check if the data is valid
+            continue
+        tmp_item = LogItem(item_name=item[0], quantity=int(item[1]), time=time)
+        res_data.append(tmp_item)
+    return res_data
