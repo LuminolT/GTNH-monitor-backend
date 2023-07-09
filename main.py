@@ -2,8 +2,8 @@
 Author: LuminolT luminol.chen@gmail.com
 Date: 2023-07-08 09:16:16
 LastEditors: LuminolT luminol.chen@gmail.com
-LastEditTime: 2023-07-09 13:44:32
-FilePath: \backend\main.py
+LastEditTime: 2023-07-09 14:01:53
+FilePath: \GTNH-monitor\backend\main.py
 Description: 
 
 Copyright (c) 2023 by LuminolT, All Rights Reserved. 
@@ -61,9 +61,9 @@ async def read_item():
     return get_latest_data()
 
 @app.post("/add_log")
-async def add_log(log_data: str):
+async def add_log(data: str):
     try:
-        response = add_log(log_data)
+        response = add_log(data)
         return response
     except HTTPException as e:
         raise e
@@ -121,7 +121,7 @@ def log_data_clean(log_data: str) -> List[LogItem]:
     """
     time = datetime.datetime.now()
     # log_data = "data=Crushed Rare Earth (I) Ore~54~false;压印基板原料~0~true;drop of 熔融黑钢~0~true;"
-    log_data = log_data[5::].split(";")
+    log_data = log_data.split(";")
     log_data = [item.split("~") for item in log_data]
     res_data = []
     for item in log_data:
