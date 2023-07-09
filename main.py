@@ -2,8 +2,8 @@
 Author: LuminolT luminol.chen@gmail.com
 Date: 2023-07-08 09:16:16
 LastEditors: LuminolT luminol.chen@gmail.com
-LastEditTime: 2023-07-09 12:10:20
-FilePath: \GTNH-monitor\backend\main.py
+LastEditTime: 2023-07-09 13:44:32
+FilePath: \backend\main.py
 Description: 
 
 Copyright (c) 2023 by LuminolT, All Rights Reserved. 
@@ -11,7 +11,6 @@ Copyright (c) 2023 by LuminolT, All Rights Reserved.
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
-import sqlite3
 import datetime
 import json
 
@@ -23,27 +22,33 @@ class LogItem(BaseModel):
     item_name: str
     quantity: int
     time: datetime.datetime
-
-class Database:
-    """ Database class to manage the connection to the database
+            
+class Buffer:
+    """ Buffer class to save the POST data
     """
     def __init__(self):
-        self._connection = None
-
-    def get_connection(self) -> sqlite3.Connection:
-        if self._connection is None:
-            self._connection = sqlite3.connect("gtnh.sqlite")
-        return self._connection
-
-    def close_connection(self):
-        if self._connection is not None:
-            self._connection.close()
-            self._connection = None            
+        self._buffer = None
+    
+    def update(self, new_buf):
+        self._buffer = new_buf
+    
+    def save(self):
+        with open("buffer.json", "w") as f:
+            json.dump(self._buffer, f)
+            
+    def read(self):
+        with open("buffer.json", "r") as f:
+            self._buffer = json.load(f)
+            
+    @property
+    def buffer(self):
+        return self._buffer
 
 #################### Main ####################s
 
-db = Database()
+# db = Database()
 app = FastAPI()
+buffer = Buffer()
 
 #################### API ####################
 
@@ -64,14 +69,6 @@ async def add_log(log_data: str):
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to process the request")
-        
-@app.on_event("startup")
-def startup_event():
-    db.get_connection()
-
-@app.on_event("shutdown")
-def shutdown_event():
-    db.close_connection()
     
     
 #################### Functions ####################
@@ -82,17 +79,8 @@ def get_latest_data():
     Returns:
         list: The latest log data
     """
-    connection = db.get_connection()
-    cursor = connection.cursor()
-
-    query = "SELECT * FROM log ORDER BY timestamp DESC"
-    cursor.execute(query)
-    latest_data = cursor.fetchall()
     
-    # to json
-    latest_data = [LogItem(id=item[0], item_name=item[1], quantity=item[2], time=item[3]) for item in latest_data]
-    
-    return latest_data
+    return buffer.buffer
 
 def add_log(log_data: str):
     """ Add log data to database
@@ -103,19 +91,9 @@ def add_log(log_data: str):
     Returns:
         dict: the response
     """
-    connection = db.get_connection()
-    cursor = connection.cursor()
-    
     data = log_data_clean(log_data)
     
-    try:
-        for item in data:
-            query = "INSERT INTO log (item_name, quantity, timestamp) VALUES (?, ?, ?)"
-            cursor.execute(query, (item.item_name, item.quantity, item.time))
-        connection.commit()
-    except Exception as e:
-        connection.rollback()
-        raise HTTPException(status_code=500, detail="Failed to add the log data")
+    buffer.update(data)
     
     return {"message": "Successfully added the log data"}
 
